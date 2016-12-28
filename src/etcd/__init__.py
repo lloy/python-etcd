@@ -73,7 +73,7 @@ class EtcdResult(object):
 
         """
         if not self._children:
-            #if the current result is a leaf, return itself
+            # if the current result is a leaf, return itself
             yield self
             return
         else:

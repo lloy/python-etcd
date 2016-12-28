@@ -4,6 +4,7 @@ import uuid
 
 _log = logging.getLogger(__name__)
 
+
 class Lock(object):
     """
     Locking recipe for etcd, inspired by the kazoo recipe for zookeeper
@@ -17,7 +18,7 @@ class Lock(object):
         # prevent us from getting back the full path name. We prefix our
         # lock name with a uuid and can check for its presence on retry.
         self._uuid = uuid.uuid4().hex
-        self.path = "{}/{}".format(client.lock_prefix, lock_name) 
+        self.path = "{}/{}".format(client.lock_prefix, lock_name)
         self.is_taken = False
         self._sequence = None
         _log.debug("Initiating lock for %s with uuid %s", self.path, self._uuid)
@@ -40,15 +41,13 @@ class Lock(object):
 
     @property
     def is_acquired(self):
-        """
-        tells us if the lock is acquired
-        """
-        if not self.is_taken:
-            _log.debug("Lock not taken")
-            return False
         try:
-            self.client.read(self.lock_key)
-            return True
+            _lockers = [res for res in self.client.read(self.path, recursive=True).leaves
+                        if res.key != self.path]
+            print '_lockers', _lockers
+            if _lockers:
+                return True
+            return False
         except etcd.EtcdKeyNotFound:
             _log.warn("Lock was supposedly taken, but we cannot find it")
             self.is_taken = False
@@ -65,6 +64,8 @@ class Lock(object):
         # First of all try to write, if our lock is not present.
         if not self._find_lock():
             _log.debug("Lock not found, writing it to %s", self.path)
+            if not blocking and self.is_acquired:
+                return False
             res = self.client.write(self.path, self.uuid, ttl=lock_ttl, append=True)
             self._set_sequence(res.key)
             _log.debug("Lock key %s written, sequence is %s", res.key, self._sequence)
@@ -109,8 +110,6 @@ class Lock(object):
             return True
         else:
             self.is_taken = False
-            if not blocking:
-                return False
             # Let's look for the lock
             watch_key = nearest
             _log.debug("Lock not acquired, now watching %s", watch_key)
