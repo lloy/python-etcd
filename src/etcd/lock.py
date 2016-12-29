@@ -44,7 +44,6 @@ class Lock(object):
         try:
             _lockers = [res for res in self.client.read(self.path, recursive=True).leaves
                         if res.key != self.path]
-            print '_lockers', _lockers
             if _lockers:
                 return True
             return False
